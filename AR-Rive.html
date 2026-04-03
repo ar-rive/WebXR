@@ -68,7 +68,7 @@
                       <label for="targetSelect">Ziel auswählen:</label><br />
                       <select id="targetSelect">
                           <option value="" disabled selected>-- Ziel bitte auswählen --</option>
-                          <option value="fangschleuse">Autobahnbrücke F.</option>
+                          <option value="fangschleuse">Autobahnbrücke Oberförstereiweg</option>
                           <option value="rathaus">Rathaus G.</option>
                           <option value="emi">EMI Gebäude</option>
                           <option value="heidi">H.</option>
@@ -101,48 +101,21 @@
 
               // ===== Zielkoordinaten =====
 
-              //const TARGET_LAT = 49.4453385;//EMI Gebäude
-              //const TARGET_LON = 11.8471359;
 
-              //const TARGET_LAT = 52.4256931;//Rathaus Grünheide
-              //const TARGET_LON = 13.8223868;
-
-              //const TARGET_LAT = 52.4144796;//Autobahnbrücke Fangschleuse
-              //const TARGET_LON = 13.7922352;
-
-
-
-              //const TARGET_LAT = 52.4218869;//Heidi
-              //const TARGET_LON = 13.7974916;
-
-
-
-              //const TARGET_LAT = 52.4159796;//Nördlich
-              //const TARGET_LON = 13.8038785;
-
-
-              //const TARGET_LAT = 52.4150594;//südlich
-              //const TARGET_LON = 13.8038785;
-
-              //const TARGET_LAT = 52.4152956;
-              //const TARGET_LON = 13.8038785;
 
               let TARGET_LAT = 52.4144796;
               let TARGET_LON = 13.7922352;
 
               const TARGETS = {
-                  fangschleuse: { lat: 52.4144796, lon: 13.7922352 },
-                  rathaus: { lat: 52.4256931, lon: 13.8223868 },
-                  emi: { lat: 49.4453385, lon: 11.8471359 },
-                  heidi: { lat: 52.4218869, lon: 13.7974916 },
+                  fangschleuse: { lat: 52.41238, lon: 13.78589 },//via BB-Viewer
+                  rathaus: { lat: 52.42576, lon: 13.82290 }, //via BB-Viewer
+                  emi: { lat: 49.44489, lon: 11.84737 },//via Bayernatlas
+                  hei: { lat: 52.4218869, lon: 13.7974916 },
                   nord: { lat: 52.4159796, lon: 13.8038785 },
                   sued: { lat: 52.4150594, lon: 13.8038785 }
               };
-
-
-
-
-
+               
+        
 
               // ===== THREE.js Setup =====
               let camera, scene, renderer;
@@ -537,7 +510,7 @@
 
                   //scene.rotation.y = THREE.MathUtils.degToRad(0);
                   if (schalterEinmalNord == false) { //  uk 2026-03-28)
-                      schalterEinmalNord == true;
+                      schalterEinmalNord = true;
                       scene.rotation.y = THREE.MathUtils.degToRad(headingFuerX3D_einmalNord);//heading setzen anstatt 0 wird -heading gesetzt
                       //scene.rotation.y = THREE.MathUtils.degToRad(verdrehung);//um x° nach rechts drehen
                       //scene.rotation.y = THREE.MathUtils.degToRad(0);//wieder starr schalten
