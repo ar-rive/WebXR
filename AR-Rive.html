@@ -129,6 +129,7 @@
               let lastResetUTM = null;
               let resetActive = false;
               let text = " (Reset noch inaktiv)";
+              let resetActive_count = 0;
 
               // ===== Kompass und filter =====
               let heading = 0;
@@ -429,7 +430,8 @@
                       }
                       if (resetActive) {
                           //text += " (Reset aktiv)";
-                          text += ",aktiviert)";
+                          resetActive_count += 1;
+                          text = "aktiviert: " + resetActive_count;
                           resetActive = false; // nur einmal anzeigen
                       }
 
