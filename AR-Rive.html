@@ -428,11 +428,12 @@
                           }
                       }
                       if (resetActive) {
-                          text += " (Reset aktiv)";
+                          //text += " (Reset aktiv)";
+                          text += ",aktiviert)";
                           resetActive = false; // nur einmal anzeigen
                       }
 
-                      //! document.getElementById("Anweisung2").textContent = text;// Zeile ggf. bei Bedarf wieder analysieren, uk. 2026-04-03
+                      document.getElementById("Anweisung2").textContent = text;// Zeile ggf. bei Bedarf wieder analysieren, uk. 2026-04-03
 
                       //const { E, N } = rechneGeogrKoordInUTMKoordUm(latitude, longitude);
                       let { E, N } = latLonToUTM(latitude, longitude);// uk 2026-03-26
