@@ -1,0 +1,218 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+Die AR-Anwendung wurde auf Basis von folgenden Quellen erstellt:
+1)  GOOGLE for Developers: Create an immersive AR session using WebXR. 2025. 
+    – URL https://developers.google.com/ar/develop/webxr/hello-webxr#create_a_scene. 
+
+2)  three.js: Docs. o. J.. 
+    – URL https://threejs.org/docs/. 
+
+3)  W3C: WebXR Device API. 2025. 
+    – URL https://www.w3.org/TR/webxr/. 
+
+4)  W3C: Geolocation. 2025. 
+    – URL https://www.w3.org/TR/geolocation/. 
+
+5)  Gruber, Franz J. ; Joeckel, Rainer ; Austen, Gerrit: Formelsammlung für das Vermessungswesen. 22. Springer Vieweg, 2024
+
+-->
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title>Hello WebXR!</title>
+
+<!--Verwendung der Version r126 von three.js -->
+  <script src="https://unpkg.com/three@0.126.0/build/three.js"></script>
+  <!-- Hinzufügen eines GLTFLoader -->
+  <script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- Hinzufügen eines OBJLoader -->
+  <!--<script src="https://unpkg.com/three@0.126.0/examples/js/loaders/OBJLoader.js"></script>-->
+</head>
+<body>
+
+<!-- Start der AR-Session mit einem Button (Schritt 3 im Lebenszyklus)-->
+<button onclick="activateXR()">Start Variante 1</button>
+ <!-- ChatGPT, am 26.11.2025, GPT5: Textfeld -->
+<div id="statusText"
+     style="position:fixed; top:20px; left:20px; 
+            padding:12px 15px; background:rgba(0,0,0,0.6); 
+            color:white; font-size:16px; border-radius:6px;
+            display:none; z-index:999;">
+</div>
+<script>
+//Definition der globalen Variablen 
+let scene, camera, renderer, gl;
+let session, referenceSpace, viewerSpace;
+let gebaeude;                       
+let hitTestSource = null;//ChatGPT, am 26.11.2025, GPT5
+let hitTestSourceRequested = false;//ChatGPT, am 26.11.2025, GPT5: Flag
+let pendingHitTest = false;//ChatGPT, am 26.11.2025, GPT5: Flag
+let buildingPlaced = false;//ChatGPT, am 12.12.2025, GPT5: Flag
+
+async function activateXR() {//ChatGPT, am 19.11.2025, GPT5: Aufrufen der einzelnen Funktionen und zeitliche Steuerung des Ablaufs durch await
+setupRendering();
+await initializeXR();
+await loadObjects();
+setupInteraction();
+session.requestAnimationFrame(onXRFrame);
+}// end: async function activateXR()
+
+
+async function initializeXR (){ // Initialisierung einer AR-Session und Anforderung zusätzlicher Module (Schritt 4 im Lebenszyklus)
+session = await navigator.xr.requestSession("immersive-ar", {requiredFeatures: ['anchors', 'hit-test']});
+session.updateRenderState({
+  baseLayer: new XRWebGLLayer(session, gl)
+});
+// Initialisierung der Typen des ReferenceSpace
+referenceSpace = await session.requestReferenceSpace('local');
+viewerSpace = await session.requestReferenceSpace('viewer');
+}//end: async function initializeXR ()
+
+
+function setupRendering() {//3D-Rendering
+  const canvas = document.createElement("canvas");
+  document.body.appendChild(canvas);
+  gl = canvas.getContext("webgl", {xrCompatible: true});
+
+  scene = new THREE.Scene();
+
+const light = new THREE.AmbientLight(0xffffff, 1);//Einstellen und Hinzufügen der Beleuchtung
+scene.add(light);
+
+renderer = new THREE.WebGLRenderer({//Rendering des Bildes mit WebGL
+  alpha: true,
+  preserveDrawingBuffer: true,
+  canvas: canvas,
+  context: gl
+});
+renderer.autoClear = false;
+
+camera = new THREE.PerspectiveCamera();//Hinzufügen der virtuellen Kamera
+camera.matrixAutoUpdate = false;
+}//end: function setupRendering()
+
+
+async function loadObjects() {
+const loader = new THREE.GLTFLoader(); //Laden des 3D-Modells als glTF-Datei
+loader.load("models/2025-12-11_Gebaeude_reduziert.glb", function(gltf) {
+  gebaeude = gltf.scene;
+  //gebaeude.scale.set(0.05,0.05,0.05); // Skalierung des 3D-Modells an dieser Stelle möglich 
+  console.log('Modell geladen:', gltf); //Anzeige in der Konsole am PC; nur bei Portweiterleitung mit USB möglich
+
+  const text = document.getElementById("statusText"); //ChatGPT, am 26.11.2025, GPT5: Anzeige eines Statustextes in der AR-Anwendung am Smartphone
+    text.innerText = "Modell wurde erfolgreich geladen und kann platziert werden.";
+    text.style.display = "block";
+
+    setTimeout(() => {//ChatGPT, am 26.11.2025, GPT5: Ausblenden des Textes nach 4s
+      text.style.display = "none"; 
+    }, 4000);
+},
+undefined, function (error) {
+  console.error('Fehler beim Laden:', error); //Anzeige in der Konsole am PC; nur bei Portweiterleitung mit USB möglich
+
+  const text = document.getElementById("statusText"); //ChatGPT, am 26.11.2025, GPT5
+  text.innerText = "Modell konnte nicht geladen werden."; 
+  text.style.display = "block"; 
+});
+}//end: async function loadObjects()
+
+
+function setupInteraction() {//ChatGPT, am 19.11.2025, GPT5
+  session.addEventListener("select", () => {
+    pendingHitTest = true;//ChatGPT, am 26.11.2025, GPT5: Auslösen des Hit-Tests durch Tippen
+  });
+}//end: function setupInteraction()
+
+
+async function onXRFrame(time, frame) {// Start des Renderer-Loops (Schritt 5 im Lebnszyklus)
+  session.requestAnimationFrame(onXRFrame);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer)
+
+  const pose = frame.getViewerPose(referenceSpace);//Abfrage der Position des Endgeräts im Koordinatensystem des Typs 'local' für jeden Frame
+  if (pose) {
+    const view = pose.views[0];//Auswahl der Anzahl der Viewpoints
+
+    const viewport = session.renderState.baseLayer.getViewport(view);
+    renderer.setSize(viewport.width, viewport.height)//Rendern des Bildes abhängig vom Viewpoint
+
+    camera.matrix.fromArray(view.transform.matrix)//Transformationsmatrix mit Translation und Rotation
+    camera.projectionMatrix.fromArray(view.projectionMatrix);//Projektionsmatrix mit Parametern der virtuellen Kamera
+    camera.updateMatrixWorld(true);
+  
+    
+    if (!hitTestSourceRequested) {//ChatGPT, am 26.11.2025, GPT5
+      hitTestSource = await session.requestHitTestSourceForTransientInput({profile: "generic-touchscreen"});//ChatGPT, am 09.12.2025, GPT5
+      hitTestSourceRequested = true;//Update des Flags
+    }//end: if (!hitTestSourceRequested)
+
+    if (pendingHitTest && hitTestSource) {//ChatGPT, am 26.11.2025, GPT5
+      pendingHitTest = false;//Update des Flags
+
+      const transientResults = frame.getHitTestResultsForTransientInput(hitTestSource);//ChatGPT, am 09.12.2025, GPT5
+
+      if (transientResults.length > 0 && gebaeude && !buildingPlaced) {//ChatGPT, geändert am 12.12.2025, GPT5: Anker wird nur erstellt, 
+      // wenn der Hit Test ausgeführt wurde, das Gebäudemodell geladen ist und bisher kein Anker erstellt wurde
+        const results = transientResults[0].results;//ChatGPT, am 09.12.2025, GPT5
+        if (results.length > 0) {//ChatGPT, am 09.12.2025, GPT5
+        const hit = results[0];//Auswahl des ersten Ergebnisses des Hit Tests
+        const hitPose = hit.getPose(referenceSpace);//Lagebestimmung des Hit-Test-Ergebnisses im Koordinatensystem des Typ 'local'
+        const anchor = await hit.createAnchor(hitPose);//Erstellung des Ankers
+        buildingPlaced = true;//Update des Flags
+
+        anchor.context = { threeObject: gebaeude };//ChatGPT, am 09.12.2025, GPT5
+        gebaeude.matrixAutoUpdate = false;
+        scene.add(gebaeude);//Darstellung des Gebäudemodells am Anker
+
+        console.log("Anchor gesetzt.")//Anzeige in der Konsole am PC; nur bei Portweiterleitung mit USB möglich
+        }
+      }
+    }//end: if (pendingHitTest && hitTestSource)
+
+  
+    const trackedAnchors = frame.trackedAnchors;//ChatGPT, am 19.11.2025, GPT5: Tracking des Ankers in jedem Frame
+    if (trackedAnchors) {//ChatGPT, am 19.11.2025, GPT5: Rendern der Anchors
+      for (const anchor of trackedAnchors) {
+        if (!anchor.context) continue;
+
+        const anchorPose = frame.getPose(anchor.anchorSpace, referenceSpace);//Lagebestimmung des Ankers im Koordinatensystem des Typs 'local' in jedem Frame
+        if (!anchorPose) continue;
+
+        const obj = anchor.context.threeObject;
+
+        obj.matrix.fromArray(anchorPose.transform.matrix);
+        obj.matrix.decompose(obj.position, obj.quaternion, obj.scale);
+      }
+    }//end: if (trackedAnchors)
+
+    renderer.render(scene, camera)//Rendering des auf dem Engerät angezeigten Bildes
+  }//end: if (pose)
+}//end: function onXRFrame(time, frame)
+
+
+
+</script>
+</body>
+</html>

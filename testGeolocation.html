@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+Auf dieser Seite wird das Ergebnis der Schnittstelle Geolocation ausgegeben. Die Koordinaten im WGS84 werden zusätzlich in UTM-Koordinaten in der Zone 32 umgerechnet und ausgegeben.
+Die Seite wurde auf Basis von folgenden Quellen erstellt:
+
+1)  W3C: Geolocation. 2025. 
+    – URL https://www.w3.org/TR/geolocation/. 
+
+2)  Gruber, Franz J. ; Joeckel, Rainer ; Austen, Gerrit: Formelsammlung für das Vermessungswesen. 22. Springer Vieweg, 2024
+
+-->
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Geolocation API Example</title>
+    <style>
+        .groß {
+            font-size: 36px;
+        }
+
+        .mittel {
+            font-size: 16px;
+        }
+
+        .klein {
+            font-size: 12px;
+        }
+    </style> <!-- uk 2026-03-26-->
+</head>
+
+<body>
+    <p class="groß">
+        <span>Breite:</span>
+        <span id="latitude"></span><br />
+
+        <span>Länge: </span>
+        <span id="longitude"></span><br />
+
+        <span>Accuracy: </span>
+        <span id="accuracy"></span><br />
+
+        <span>Altitude/ ellipsoidische Höhe: </span>
+        <span id="altitude"></span><br />
+
+        <span>Altitude accuracy: </span>
+        <span id="altitudeAccuracy"></span><br />
+
+        <span>E von P: </span>
+        <span id="east"></span><br />
+
+        <span>N von P: </span>
+        <span id="north"></span><br />
+    </p>
+    <script>
+        function rechneGeogrKoordInUTMKoordUm(lat, lon) {// nach 2), S. 166: Umrechnung der geografischen Koordinaten im WGS84 in UTM-Koordinaten der Zone 32
+            const lat_rad = lat * Math.PI / 180;
+            const lon_rad = lon * Math.PI / 180;
+
+            const a = 6378137.00; //m
+            const b = 6356752.314; //m
+
+            const G0 = 111132.952547; // °/m
+            const G2 = -16038.5088; //m
+            const G4 = 16.8326; //m
+            const G6 = -0.0220; //m
+
+            const m = 0.9996;
+            const L0 = 9; //°
+            const L_delta = lon - L0 //°
+
+            const c = (a ** 2) / b;
+            const t = Math.tan(lat_rad);
+            const eta_square = (a ** 2 - b ** 2) * (Math.cos(lat_rad) ** 2) / (b ** 2);
+            const N_quer = c / Math.sqrt(1 + eta_square);
+            const roh = 180 / Math.PI;
+            const H1 = m / roh * N_quer * Math.cos(lat_rad);
+            const H3 = m / (6 * (roh ** 3)) * N_quer * (Math.cos(lat_rad) ** 3) * (1 - (t ** 2) + eta_square);
+            const H5 = m / (120 * (roh ** 5)) * N_quer * (Math.cos(lat_rad) ** 5) * (5 - 18 * (t ** 2) + t ** 4 + eta_square * (14 - 58 * (t ** 2)));
+            const H2 = m / (2 * (roh ** 2)) * N_quer * (Math.cos(lat_rad) ** 2) * t;
+            const H4 = m / (24 * (roh ** 4)) * N_quer * (Math.cos(lat_rad) ** 4) * t * (5 - (t ** 2) + 9 * eta_square);
+            const H6 = m / (720 * (roh ** 6)) * N_quer * (Math.cos(lat_rad) ** 6) * t * (61 - 58 * (t ** 2) + t ** 4);
+            const E0 = ((L0 + 3) / 6 + 30.5) * (10 ** 6);
+            const G = G0 * lat + G2 * Math.sin(2 * lat_rad) + G4 * Math.sin(4 * lat_rad) + G6 * Math.sin(6 * lat_rad);
+
+            const E = E0 + H1 * L_delta + H3 * (L_delta ** 3) + H5 * (L_delta ** 5);
+            const N = m * G + H2 * (L_delta ** 2) + H4 * (L_delta ** 4) + H6 * (L_delta ** 6);
+
+            return { E, N }
+        }//end: function rechneGeogrKoordInUTMKoordUm(lat, lon)
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const { latitude, longitude, accuracy, altitude, altitudeAccuracy, heading } = position.coords;
+                document.getElementById("latitude").textContent = latitude;
+                document.getElementById("longitude").textContent = longitude;
+                document.getElementById("accuracy").textContent = accuracy;
+                document.getElementById("altitude").textContent = altitude;
+                document.getElementById("altitudeAccuracy").textContent = altitudeAccuracy;
+
+                const { E, N } = rechneGeogrKoordInUTMKoordUm(latitude, longitude);
+                document.getElementById("east").textContent = E.toFixed(3);
+                document.getElementById("north").textContent = N.toFixed(3);
+
+            },
+            error => {
+                console.error("Fehler beim Abrufen der Position:", error);
+                document.getElementById("latitude").textContent = "Fehler";
+                document.getElementById("longitude").textContent = "Fehler";
+                document.getElementById("altitude").textContent = "Fehler";
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0
+            }
+        );
+
+
+    </script>
+
+</body>
+
+    </html>

@@ -1,0 +1,278 @@
+<!doctype html>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+Die AR-Anwendung wurde auf Basis von folgenden Quellen erstellt:
+1)  GOOGLE for Developers: Create an immersive AR session using WebXR. 2025. 
+    – URL https://developers.google.com/ar/develop/webxr/hello-webxr#create_a_scene. 
+
+2)  three.js: Docs. o. J.. 
+    – URL https://threejs.org/docs/. 
+
+3)  W3C: WebXR Device API. 2025. 
+    – URL https://www.w3.org/TR/webxr/. 
+
+4)  W3C: Geolocation. 2025. 
+    – URL https://www.w3.org/TR/geolocation/. 
+
+5)  Gruber, Franz J. ; Joeckel, Rainer ; Austen, Gerrit: Formelsammlung für das Vermessungswesen. 22. Springer Vieweg, 2024
+
+-->
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <title>Hello WebXR!</title>
+
+  <!-- Verwendung der Version r126 von three.js -->
+  <script src="https://unpkg.com/three@0.126.0/build/three.js"></script>
+  <!-- Hinzufügen eines GLTFLoader -->
+  <script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- Hinzufügen eines OBJLoader -->
+  <!--<script src="https://unpkg.com/three@0.126.0/examples/js/loaders/OBJLoader.js"></script>-->
+</head>
+<body>
+
+<!-- Start der AR-Session mit einem Button (Schritt 3 im Lebenszyklus) -->
+<button onclick="activateXR()">Start Variante 2</button>
+
+<script>
+//Definition der globalen Variablen 
+let scene, camera, renderer, gl;
+let session, referenceSpace;
+let gebaeude;                       
+let pendingAnchorRequest = false;//ChatGPT, am 19.11.2025, GPT5: Flag
+let lat_P, lon_P, alt_P;
+let geoReady = false;//ChatGPT, am 13.12.2025, GPT5: Flag
+let modelReady = false;//ChatGPT, am 13.12.2025, GPT5: Flag
+
+function getCurrentPositionAsync(options) {//ChatGPT, am 15.12.2025, GPT5
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+  });
+}
+
+/*navigator.geolocation.getCurrentPosition(position => {// nach 4)
+  lat_P = position.coords.latitude;
+  lon_P = position.coords.longitude;
+  alt_P = position.coords.altitude;
+  geoReady = true},//ChatGPT, am 13.12.2025, GPT5
+  {enableHighAccuracy: true,
+  maximumAge: 0}
+);*/
+
+function rechneGeogrKoordInUTMKoordUm(lat, lon) {// nach 5), S. 166: Umrechnung der geografischen Koordinaten im WGS84 in UTM-Koordinaten der Zone 32
+  const lat_rad = lat * Math.PI / 180;
+  const lon_rad = lon * Math.PI / 180;
+
+  const a = 6378137.00; //m
+  const b = 6356752.314; //m
+
+  const G0 = 111132.952547; // °/m
+  const G2 = -16038.5088; //m
+  const G4 = 16.8326; //m
+  const G6 = -0.0220; //m
+
+  const m = 0.9996;
+  const L0 = 9; //°
+  const L_delta = lon-L0 //°
+
+  const c = (a**2)/b;
+  const t = Math.tan(lat_rad);
+  const eta_square = (a**2 - b**2)* (Math.cos(lat_rad)**2) / (b**2);
+  const N_quer = c/ Math.sqrt(1+eta_square);
+  const roh = 180/ Math.PI;
+  const H1 = m/roh*N_quer*Math.cos(lat_rad);
+  const H3 = m/(6*(roh**3))*N_quer*(Math.cos(lat_rad)**3)*(1-(t**2)+eta_square);
+  const H5 = m/(120*(roh**5))*N_quer*(Math.cos(lat_rad)**5)*(5-18*(t**2)+t**4+eta_square*(14-58*(t**2)));
+  const H2 = m/(2*(roh**2))*N_quer*(Math.cos(lat_rad)**2)*t;
+  const H4 = m/(24*(roh**4))*N_quer*(Math.cos(lat_rad)**4)*t*(5-(t**2)+9*eta_square);
+  const H6 = m/(720*(roh**6))*N_quer*(Math.cos(lat_rad)**6)*t*(61-58*(t**2)+t**4);
+  const E0 = ((L0+3)/6+30.5)*(10**6);
+  const G = G0*lat+G2*Math.sin(2*lat_rad)+G4*Math.sin(4*lat_rad)+G6*Math.sin(6*lat_rad);
+
+  const E = E0+H1*L_delta+H3*(L_delta**3)+H5*(L_delta**5);
+  const N = m*G+H2*(L_delta**2)+H4*(L_delta**4)+H6*(L_delta**6);
+  return {E, N}//Ausgabe der UTM-Koordinaten
+}//end: function rechneGeogrKoordInUTMKoordUm(lat, lon)
+
+function berechne_s_t(E, N) {// nach 5), S. 64: Berechnung der horizontalen Strecke s
+  const E_A0 = 32706333.02;//Koordinaten von A0
+  const N_A0 = 5480780.25;
+  const NHN_A0 = 385.49;
+  const s = Math.sqrt((E-E_A0)**2+(N-N_A0)**2)
+  return s// Ausgabe der horizontalen Strecke
+}//end: function berechne_s_t(E, N)
+
+function berchne_delta_h(alt) {// Berechnung des Höhenunterschieds
+  const NHN_A0 = 385.49;;//NHN-Höhe von A0
+  const zeta = 46.352;//Quasigeoidhöhe
+  const delta_h = NHN_A0-alt-zeta
+  return delta_h//Ausgabe des Höhenunterschieds
+}//end: function berchne_delta_h(alt)
+
+
+async function activateXR() {//ChatGPT, am 19.11.2025, GPT5: Aufrufen der einzelnen Funktionen und zeitliche Steuerung des Ablaufs durch await
+setupRendering();
+
+const position = await getCurrentPositionAsync({//nach 4), angepasst mit ChatGPT, am 15.12.2025, GPT5: Bestimmung der Position des Smartphones im WGS84
+    enableHighAccuracy: true,//Die Position soll so genau wie möglich bestimmt werden, also mit GNSS und nicht mit A-GPS und WLAN-Ortung
+    maximumAge: 0// Die Position wird neu bestimmt und es wird beispielsweise kein gespeicherter Wert in einem Cache verwendet
+  });
+  lat_P = position.coords.latitude;//Latitude
+  lon_P = position.coords.longitude;//Longitude
+  alt_P = position.coords.altitude;//Altitude
+  geoReady = true;//Update des Flags
+
+await initializeXR();
+await loadObjects();
+setupInteraction();
+session.requestAnimationFrame(onXRFrame);
+}// end: async function activateXR()
+
+
+async function initializeXR (){// Initialisierung einer AR-Session und Anforderung zusätzlicher Module (Schritt 4 im Lebenszyklus)
+session = await navigator.xr.requestSession("immersive-ar", {requiredFeatures: ['anchors']});
+session.updateRenderState({
+  baseLayer: new XRWebGLLayer(session, gl)
+});
+// Initialisierung der Typen des ReferenceSpace
+referenceSpace = await session.requestReferenceSpace('local');
+}//end: async function initializeXR ()
+
+
+function setupRendering() {//3D-Rendering
+  const canvas = document.createElement("canvas");
+  document.body.appendChild(canvas);
+  gl = canvas.getContext("webgl", {xrCompatible: true});
+
+  scene = new THREE.Scene();
+
+const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);//Einstellen und Hinzufügen der Beleuchtung
+scene.add(light);
+
+renderer = new THREE.WebGLRenderer({//Rendering des Bildes mit WebGL
+  alpha: true,
+  preserveDrawingBuffer: true,
+  canvas: canvas,
+  context: gl
+});
+renderer.autoClear = false;
+
+camera = new THREE.PerspectiveCamera();//Hinzufügen der virtuellen Kamera
+camera.matrixAutoUpdate = false;
+}//end: function setupRendering()
+
+
+async function loadObjects() {
+const loader = new THREE.GLTFLoader();//Laden des 3D-Modells als glTF-Datei
+loader.load("models/2025-12-11_Gebaeude_reduziert.glb", function(gltf) {
+  gebaeude = gltf.scene;
+  modelReady = true;//ChatGPT, am 13.12.2025, GPT5
+   gebaeude.matrixAutoUpdate = false;
+//gebaeude.scale.set(0.05,0.05,0.05); // Skalierung des 3D-Modells an dieser Stelle möglich 
+  console.log('Modell geladen:', gltf); //Anzeige in der Konsole am PC; nur bei Portweiterleitung mit USB möglich
+},
+undefined, function (error) {
+  console.error('Fehler beim Laden:', error);//Anzeige in der Konsole am PC; nur bei Portweiterleitung mit USB möglich
+});
+}//end: async function loadObjects()
+
+
+function setupInteraction() {//ChatGPT, am 19.11.2025, GPT5
+  session.addEventListener("select", () => {
+    if (!geoReady) {
+    return;}
+
+    if (!modelReady) {
+    return;}
+    if (gebaeude) pendingAnchorRequest = true;// Anfrage zur Platzierung des Ankers erfolgt erst, 
+    // wenn Position über Geolocation abgerufen werden kann und das Gebäudemodell geladen ist
+  });
+}//end: function setupInteraction()
+
+
+async function onXRFrame(time, frame) {// Start des Renderer-Loops (Schritt 5 im Lebenszyklus)
+  session.requestAnimationFrame(onXRFrame);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer)
+
+  const {E,N} = rechneGeogrKoordInUTMKoordUm(lat_P,lon_P);
+  //const E = 32706332.794 //Koordinaten P0
+  //const N = 5480785.226
+  const s = berechne_s_t(E,N);
+  const delta_h = berchne_delta_h(alt_P);
+
+  const pose = frame.getViewerPose(referenceSpace);//Abfrage der Position des Endgeräts im Koordinatensystem des Typs 'local' für jeden Frame
+  if (pose) {
+    const view = pose.views[0];//Auswahl der Anzahl der Viewpoints
+
+    const viewport = session.renderState.baseLayer.getViewport(view);
+    renderer.setSize(viewport.width, viewport.height)//Rendern des Bildes abhängig vom Viewpoint
+
+    camera.matrix.fromArray(view.transform.matrix)//Transformationsmatrix mit Translation und Rotation
+    camera.projectionMatrix.fromArray(view.projectionMatrix);//Projektionsmatrix mit Parametern der virtuellen Kamera
+    camera.updateMatrixWorld(true);
+  
+    
+  if (pendingAnchorRequest) {//ChatGPT, am 19.11.2025, GPT5
+    pendingAnchorRequest = false;//Update des Flags
+
+    const poseInFront = new XRRigidTransform(
+      { x: 0, y: delta_h, z: -s }, //Verschiebung der Position um die berechnete Entfernung und den Höhenunterschied
+      { x: 0, y: 0, z: 0, w: 1 }//Orientierung wird nicht verändert
+    );
+
+    const anchor = await frame.createAnchor(poseInFront, referenceSpace);//Erstellung des Ankers
+
+    anchor.context = {
+      threeObject: gebaeude
+    };
+
+    scene.add(anchor.context.threeObject);
+  }//end: if (pendingAnchorRequest)
+
+  
+  const trackedAnchors = frame.trackedAnchors;//ChatGPT, am 19.11.2025, GPT5: Tracking des Ankers in jedem Frame
+  if (trackedAnchors) {//ChatGPT, am 19.11.2025, GPT5
+    for (const anchor of trackedAnchors) {
+      if (!anchor.context) continue;
+
+      const anchorPose = frame.getPose(anchor.anchorSpace, referenceSpace);//Lagebestimmung des Ankers im Koordinatensystem des Typs 'local' in jedem Frame
+      if (!anchorPose) continue;
+
+      const obj = anchor.context.threeObject;
+
+      obj.matrix.fromArray(anchorPose.transform.matrix);
+      obj.matrix.decompose(obj.position, obj.quaternion, obj.scale);
+    }
+  }//end: if (trackedAnchors)
+
+    renderer.render(scene, camera)//Rendering des auf dem Engerät angezeigten Bildes
+  }//end: if (pose)
+}//end: function onXRFrame(time, frame)
+
+
+
+</script>
+</body>
+</html>
