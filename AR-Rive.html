@@ -20,7 +20,7 @@
         .mittel {
             font-size: 16px;
         }
-
+    
         .klein {
             font-size: 12px;
         }
@@ -39,10 +39,10 @@
                       <p>
 
                           <!--This sample demonstrates extremely simple use of an "immersive-ar"
-        session with no library dependencies, with an optional DOM overlay.
-        It doesn't render anything exciting, just draws a rectangle with a
-        slowly changing color to prove it's working.
-        <a class="back" href="https://immersive-web.github.io/webxr-samples/index.html">Back</a>-->
+    session with no library dependencies, with an optional DOM overlay.
+    It doesn't render anything exciting, just draws a rectangle with a
+    slowly changing color to prove it's working.
+    <a class="back" href="https://immersive-web.github.io/webxr-samples/index.html">Back</a>-->
 
                           <span>La/Lo:</span>
                           <span id="latitude"></span>/<span id="longitude"></span> | Acc: +/- <span id="accuracy"></span> m<br />
@@ -61,6 +61,7 @@
                           <span>dE/nN: </span> <span id="deast_z"></span> / <span id="dnorth_z"></span> (Ziel)<br />
                           <span>Anweisung 1: </span> <span id="Anweisung1"></span><br />
                           <span>Anweisung 2: </span> <span id="Anweisung2"></span><br />
+                          <span>moved: </span> <span id="moved"></span><br />
                       </p>
                       <div id="session-info"></div>
                       <div id="pose"></div>
@@ -101,7 +102,7 @@
 
               // ===== Zielkoordinaten =====
 
-
+             
 
               let TARGET_LAT = 52.4144796;
               let TARGET_LON = 13.7922352;
@@ -144,6 +145,10 @@
 
               //==========Distanz UI =============
               let distanceDiv;
+
+              let xrSession = null;//  uk 2026-03-29
+              let moved = 0.0; //uk, 2026-04-06
+
 
 
 
@@ -254,6 +259,8 @@
                                       domOverlay: { root: document.getElementById("overlay") }
                                   });
 
+                                  xrSession = session;
+
                                   renderer.xr.setReferenceSpaceType("local");
                                   renderer.xr.setSession(session);
 
@@ -268,16 +275,21 @@
                                       
                                   }
 
-                                  // 👉 Overlay einklappen
+                                  // Overlay einklappen
                                   document.querySelector("#overlay details").open = false; //aufklappen oder zuklappen
 
                                   button.textContent = "Stop AR";
 
                                   session.addEventListener("end", () => {
-                                      button.textContent = "Start AR";
+                                      button.textContent = "Start AR / Fortsetzen AR";
                                       //Dropdown Ortsliste wieder aktivieren:
                                       const select = document.getElementById("targetSelect");
                                       select.disabled = false;
+
+                                      button.style.visibility = "visible";  // uk 2026-04-06
+                                      xrSession = null; // uk 2026-04-06
+                                      document.querySelector("#overlay details").open = true; //aufklappen oder zuklappen // uk 2026-04-06
+
                                   });
 
                                   // Stop-Funktion beim zweiten Klick
@@ -417,7 +429,11 @@
                       }
                       // ===== soft Reset alle 10 m =====
                       if (originUTM && accuracy < 10) {
-                          let moved = distanceUTM(currentUTM, lastResetUTM);
+                          //let moved = distanceUTM(currentUTM, lastResetUTM);
+                          moved = distanceUTM(currentUTM, lastResetUTM);
+                          document.getElementById("moved").textContent = moved.toFixed(1), " m";//uk 2026-04-06
+
+
 
                           if (moved > 10) {
                               console.log("🔄 Soft-Reset nach", moved.toFixed(1), "m");
@@ -429,6 +445,19 @@
                               lastResetUTM = currentUTM;
 
                               resetActive = true; //
+
+                              //Idee/ToDo 2026-04-06: 
+                              //Hier eventuell zukünftig
+                              //den Ursprung des originUTM verschieben/neu initialisieren
+                              //und auf xrSession.end() verzichten
+
+                              // 👉 AR stoppen //uk 2026-04-06
+                              if (xrSession) {
+                                  console.log("🛑 10 m erreicht → AR wird beendet");
+                                  xrSession.end();
+                              }
+
+
                           }
                       }
                       if (resetActive) {
@@ -545,35 +574,35 @@
                           document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen";// uk 2026-03-27 ↘ ↗ →1
                           if (heading >= 0 && heading < 45) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "↘";// uk 2026-03-27 
-                              titel_pfeil = "   ↘";// uk 2026-03-28
+                              titel_pfeil = "\u2009↘";// uk 2026-03-28
                           }
                           if (heading >= 45 && heading < 90) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "→";// uk 2026-03-27
-                              titel_pfeil = "   →";// uk 2026-03-28
+                              titel_pfeil = "\u2009→";// uk 2026-03-28
                           }
                           if (heading >= 90 && heading < 135) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "↗";// uk 2026-03-27 
-                              titel_pfeil = "   ↗";// uk 2026-03-28
+                              titel_pfeil = "\u2009↗";// uk 2026-03-28
                           }
                           if (heading >= 135 && heading < 180) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "↑";// uk 2026-03-27 
-                              titel_pfeil = "   ↑";// uk 2026-03-28
+                              titel_pfeil = "\u2009↑";// uk 2026-03-28
                           }
                           if (heading >= 180 && heading < 225) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "↖";// uk 2026-03-27
-                              titel_pfeil = "   ↖";// uk 2026-03-28
+                              titel_pfeil = "\u2009↖";// uk 2026-03-28
                           }
                           if (heading >= 225 && heading < 270) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "←";// uk 2026-03-27
-                              titel_pfeil = "  ←";// uk 2026-03-28
+                              titel_pfeil = "\u2009←";// uk 2026-03-28
                           }
                           if (heading >= 270 && heading < 315) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "↙";// uk 2026-03-27
-                              titel_pfeil = "   ↙";// uk 2026-03-28
+                              titel_pfeil = "\u2009↙";// uk 2026-03-28
                           }
                           if (heading >= 315 && heading < 360) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Osten gehen " + "↓";// uk 2026-03-27 
-                              titel_pfeil = "   ↓";// uk 2026-03-28
+                              titel_pfeil = "\u2009↓";// uk 2026-03-28
                           }
                       } 
 
@@ -581,35 +610,35 @@
                           document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen";// uk 2026-03-27
                           if (heading >= 0 && heading < 45) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "↓";// uk 2026-03-29 
-                              titel_pfeil = "   ↓";// uk 2026-03-29
+                              titel_pfeil = "\u2009↓";// uk 2026-03-29
                           }
                           if (heading >= 45 && heading < 90) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "↘";// uk 2026-03-29
-                              titel_pfeil = "   ↘";// uk 2026-03-29
+                              titel_pfeil = "\u2009↘";// uk 2026-03-29
                           }
                           if (heading >= 90 && heading < 135) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "→";// uk 2026-03-29
-                              titel_pfeil = "   →";// uk 2026-03-29
+                              titel_pfeil = "\u2009→";// uk 2026-03-29
                           }
                           if (heading >= 135 && heading < 180) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "↗";// uk 2026-03-29 
-                              titel_pfeil = "   ↗";// uk 2026-03-29
+                              titel_pfeil = "\u2009↗";// uk 2026-03-29
                           }
                           if (heading >= 180 && heading < 225) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "↑";// uk 2026-03-29
-                              titel_pfeil = "   ↑";// uk 2026-03-29
+                              titel_pfeil = "\u2009↑";// uk 2026-03-29
                           }
                           if (heading >= 225 && heading < 270) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "↖";// uk 2026-03-29
-                              titel_pfeil = "  ↖";// uk 2026-03-29
+                              titel_pfeil = "\u2009↖";// uk 2026-03-29
                           }
                           if (heading >= 270 && heading < 315) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "←";// uk 2026-03-29
-                              titel_pfeil = "   ←";// uk 2026-03-29
+                              titel_pfeil = "\u2009←";// uk 2026-03-29
                           }
                           if (heading >= 315 && heading < 360) {
                               document.getElementById("Anweisung1").textContent = "nach Süd-Westen gehen " + "↙";// uk 2026-03-29 
-                              titel_pfeil = "   ↙";// uk 2026-03-29
+                              titel_pfeil = "\u2009↙";// uk 2026-03-29
                           }
                       }
 
@@ -617,35 +646,35 @@
                           document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen";// uk 2026-03-27
                           if (heading >= 0 && heading < 45) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "↑";// uk 2026-03-29 
-                              titel_pfeil = "   ↑";// uk 2026-03-29
+                              titel_pfeil = "\u2009↑";// uk 2026-03-29
                           }
                           if (heading >= 45 && heading < 90) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "↖";// uk 2026-03-29
-                              titel_pfeil = "   ↖";// uk 2026-03-29
+                              titel_pfeil = "\u2009↖";// uk 2026-03-29
                           }
                           if (heading >= 90 && heading < 135) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "←";// uk 2026-03-29
-                              titel_pfeil = "   ←";// uk 2026-03-29
+                              titel_pfeil = "\u2009←";// uk 2026-03-29
                           }
                           if (heading >= 135 && heading < 180) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "↙";// uk 2026-03-29 
-                              titel_pfeil = "   ↙";// uk 2026-03-29
+                              titel_pfeil = "\u2009↙";// uk 2026-03-29
                           }
                           if (heading >= 180 && heading < 225) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "↓";// uk 2026-03-29
-                              titel_pfeil = "   ↓";// uk 2026-03-29
+                              titel_pfeil = "\u2009↓";// uk 2026-03-29
                           }
                           if (heading >= 225 && heading < 270) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "↘";// uk 2026-03-29
-                              titel_pfeil = "  ↘";// uk 2026-03-29
+                              titel_pfeil = "\u2009↘";// uk 2026-03-29
                           }
                           if (heading >= 270 && heading < 315) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "→";// uk 2026-03-29
-                              titel_pfeil = "   →";// uk 2026-03-29
+                              titel_pfeil = "\u2009→";// uk 2026-03-29
                           }
                           if (heading >= 315 && heading < 360) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Osten gehen " + "↗";// uk 2026-03-29 
-                              titel_pfeil = "   ↗";// uk 2026-03-29
+                              titel_pfeil = "\u2009↗";// uk 2026-03-29
                           }
 
                       }
@@ -654,35 +683,35 @@
                           document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen";// uk 2026-03-27
                           if (heading >= 0 && heading < 45) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "↖";// uk 2026-03-29 
-                              titel_pfeil = "   ↖";// uk 2026-03-29
+                              titel_pfeil = "\u2009↖";// uk 2026-03-29
                           }
                           if (heading >= 45 && heading < 90) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "←";// uk 2026-03-29
-                              titel_pfeil = "   ←";// uk 2026-03-29
+                              titel_pfeil = "\u2009←";// uk 2026-03-29
                           }
                           if (heading >= 90 && heading < 135) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "↙";// uk 2026-03-29
-                              titel_pfeil = "   ↙";// uk 2026-03-29
+                              titel_pfeil = "\u2009↙";// uk 2026-03-29
                           }
                           if (heading >= 135 && heading < 180) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "↓";// uk 2026-03-29 
-                              titel_pfeil = "   ↓";// uk 2026-03-29
+                              titel_pfeil = "\u2009↓";// uk 2026-03-29
                           }
                           if (heading >= 180 && heading < 225) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "↘";// uk 2026-03-29
-                              titel_pfeil = "   ↘";// uk 2026-03-29
+                              titel_pfeil = "\u2009↘";// uk 2026-03-29
                           }
                           if (heading >= 225 && heading < 270) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "→";// uk 2026-03-29
-                              titel_pfeil = "  →";// uk 2026-03-29
+                              titel_pfeil = "\u2009→";// uk 2026-03-29
                           }
                           if (heading >= 270 && heading < 315) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "↗";// uk 2026-03-29
-                              titel_pfeil = "   ↗";// uk 2026-03-29
+                              titel_pfeil = "\u2009↗";// uk 2026-03-29
                           }
                           if (heading >= 315 && heading < 360) {
                               document.getElementById("Anweisung1").textContent = "nach Nord-Westen gehen " + "↑";// uk 2026-03-29 
-                              titel_pfeil = "   ↑";// uk 2026-03-29
+                              titel_pfeil = "\u2009↑";// uk 2026-03-29
                           }
                       }
 
