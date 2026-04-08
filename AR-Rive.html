@@ -149,6 +149,10 @@
               let xrSession = null;//  uk 2026-03-29
               let moved = 0.0; //uk, 2026-04-06
 
+              //==========Koord-Ursprung im Renderer Nullsetzen =============
+              let offsetReferenceSpace = null;//uk, 2026-04-08
+              let resetRequested = false;//uk, 2026-04-08
+
 
 
 
@@ -455,6 +459,8 @@
                               if (xrSession) {
                                   console.log("🛑 10 m erreicht → AR wird beendet");
                                   xrSession.end();
+
+                                  resetRequested = true;//uk 2026-04-08
                               }
 
 
@@ -502,10 +508,44 @@
 
                   let verdrehung = null;//in degree uk 2026-04-28
 
-                      const referenceSpace = renderer.xr.getReferenceSpace();
+                      let referenceSpace = renderer.xr.getReferenceSpace();
                       const session = renderer.xr.getSession();
+                     //hier Zugriff auf den aktuellen WebXR-Origin
 
                       if (frame && referenceSpace) {
+
+
+
+                          // 👉 RESET auslösen uk 2026-04-08
+                          if (resetRequested) {
+                              const pose = frame.getViewerPose(referenceSpace);
+
+                              if (pose) {
+                                  const pos = pose.transform.position;
+
+                                  const offset = new XRRigidTransform({
+                                      x: -pos.x,
+                                      y: -pos.y,
+                                      z: -pos.z
+                                  });
+
+                                  offsetReferenceSpace = referenceSpace.getOffsetReferenceSpace(offset);
+
+                                  console.log("🔄 WebXR Ursprung verschoben");
+                              }
+
+                              resetRequested = false;
+                          }
+
+                          // 👉 Falls Offset existiert, benutze ihn
+                          if (offsetReferenceSpace) {
+                              referenceSpace = offsetReferenceSpace;
+                          }
+
+
+
+
+
 
                           const pose = frame.getViewerPose(referenceSpace);
 
@@ -545,7 +585,7 @@
 
                   //scene.rotation.y = THREE.MathUtils.degToRad(0);
                   if (schalterEinmalNord == false) { //  uk 2026-03-28)
-                      schalterEinmalNord == true;
+                      // schalterEinmalNord = true; // uk 2026-04-08: wenn diese Zeile deaktiviert ist funktionierts: einmalige Übergabe von Magnetisch Nord
                       scene.rotation.y = THREE.MathUtils.degToRad(headingFuerX3D_einmalNord);//heading setzen anstatt 0 wird -heading gesetzt
                       //scene.rotation.y = THREE.MathUtils.degToRad(verdrehung);//um x° nach rechts drehen
                       //scene.rotation.y = THREE.MathUtils.degToRad(0);//wieder starr schalten
@@ -560,13 +600,18 @@
                  
                   if (currentUTM && targetUTM) {
 
-                      //let dx = targetUTM.E - currentUTM.E; //alt, vor 2026-03-28
-                      //let dz = targetUTM.N - currentUTM.N; //alt, vor 2026-03-28
 
                       //Neu für GPS/UTM/SLAM Reset uk 2026-03-28
                       if (!originUTM) return;
-                      let dx = targetUTM.E - originUTM.E;
-                      let dz = targetUTM.N - originUTM.N;
+                      //GNSS-basierter Offset, nicht SLAM
+                      //let dx = targetUTM.E - originUTM.E; 
+                      //let dz = targetUTM.N - originUTM.N; 
+                      let dx = targetUTM.E - currentUTM.E; //alt, vor 2026-03-28 => am 2026-04-08 wieder reaktiviert, da die orange Target-Kugel nie erreicht wurde
+                      let dz = targetUTM.N - currentUTM.N; //alt, vor 2026-03-28 => am 2026-04-08 wieder reaktiviert, da die orange Target-Kugel nie erreicht wurde
+                      //TODO: die komplette "originUTM" Behandlung prüfen, ob benötigt wird //uk, 2026-04-08
+
+
+
 
                       let titel_pfeil = "";
 
